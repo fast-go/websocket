@@ -1,8 +1,12 @@
 # websocket
 
 
-### service
+```go
+go get github.com/fast-go/websocket
 ```
+
+### service
+```go 
     type Auth struct {}
     
     //Authentication, return user unique ID
