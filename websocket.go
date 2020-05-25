@@ -20,14 +20,14 @@ type MessageFormat struct {
 	Data    	interface{} `json:"data,omitempty"`
 }
 
-type Socket struct {
+type WebSocket struct {
 	W http.ResponseWriter
 	R *http.Request
 	Conn *Connection
 	MessageFormat MessageFormat
 }
 
-type NoticeController func(*Socket)
+type NoticeController func(*WebSocket)
 
 type socketRoute map[string]NoticeController
 
@@ -78,7 +78,7 @@ func Middleware(w http.ResponseWriter, r *http.Request,auth Auth) {
 		}
 		messageFormat.From = conn.UniqueIdentification
 		if fuc,ok := Route[messageFormat.Route];ok {
-			fuc(&Socket{
+			fuc(&WebSocket{
 				W:    w,
 				R:    r,
 				Conn: conn,
