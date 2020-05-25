@@ -6,7 +6,8 @@ go get github.com/fast-go/websocket
 ```
 
 ### service
-```go 
+```golang
+
     type Auth struct {}
     
     //Authentication, return user unique ID
@@ -18,14 +19,16 @@ go get github.com/fast-go/websocket
     func (auth *Auth)ConnDone(c *socket.Connection) error {
         return nil
     }
+
     //Define route
     socket.Route.Add("/test", func(s *socket.Socket) {
 		fmt.Println("runing test action")
 		_ = s.Conn.WriteMessage([]byte("send message"))
 		fmt.Println(s.MessageFormat)
+        websocket.Manager.Send("2","Send message to user 2")
 	})
 
-	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+    http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 		 //Middleware connect websocket
          socket.Middleware(writer,request,&Auth{})
 	})
@@ -35,12 +38,13 @@ go get github.com/fast-go/websocket
 	if err != nil {
 		fmt.Print(err)
 	}
+
 ```
 
 
 ### client
 
 #### client send data format
-```js
+```json
 {"route":"/test","data":"hello world"}
 ```

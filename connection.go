@@ -1,14 +1,14 @@
-package socket
+package websocket
 
 import (
 	"errors"
-	"github.com/gorilla/websocket"
+	gorillaWebsocket "github.com/gorilla/websocket"
 	"sync"
 )
 
 type Connection struct{
 	UniqueIdentification   UniqueIdentification
-	wsConnect              *websocket.Conn
+	wsConnect              *gorillaWebsocket.Conn
 	inChan                 chan []byte
 	outChan                chan []byte
 	closeChan              chan byte
@@ -16,11 +16,11 @@ type Connection struct{
 	isClosed               bool  // 防止closeChan被关闭多次
 }
 
-func InitConnection(wsConn *websocket.Conn)(conn *Connection ,err error){
+func InitConnection(wsConn *gorillaWebsocket.Conn)(conn *Connection ,err error){
 	conn = &Connection{
 		wsConnect:wsConn,
-		inChan: make(chan []byte,1000),
-		outChan: make(chan []byte,1000),
+		inChan: make(chan []byte,10000),
+		outChan: make(chan []byte,10000),
 		closeChan: make(chan byte,1),
 	}
 	// 启动读协程
@@ -95,7 +95,7 @@ func (conn *Connection)writeLoop(){
 			goto ERR
 		}
 
-		if err = conn.wsConnect.WriteMessage(websocket.TextMessage , data); err != nil{
+		if err = conn.wsConnect.WriteMessage(gorillaWebsocket.TextMessage , data); err != nil{
 			goto ERR
 		}
 	}
