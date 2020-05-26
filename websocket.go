@@ -15,7 +15,7 @@ var upGrader = websocket.Upgrader{
 
 // websocket message
 type MessageFormat struct {
-	Route       string                 `json:"route"`
+	Route       string   `json:"route"`
 	From        UniqueIdentification
 	Data    	interface{} `json:"data,omitempty"`
 }
@@ -31,7 +31,7 @@ type NoticeController func(*WebSocket)
 
 type socketRoute map[string]NoticeController
 
-func (sr *socketRoute)Add (routeName string,fuc NoticeController) {
+func (sr *socketRoute)Add(routeName string,fuc NoticeController) {
 	(*sr)[routeName] = fuc
 }
 

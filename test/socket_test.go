@@ -3,7 +3,6 @@ package test
 import (
 	"fmt"
 	"net/http"
-	"sync/atomic"
 	"testing"
 	"websocket"
 )
@@ -36,25 +35,24 @@ func (auth *Auth)Identity(w http.ResponseWriter, r *http.Request) (error,websock
 }
 
 func (auth *Auth)ConnDone(c *websocket.Connection) error {
-	//todo 可以自行存储链接状态
+	//todo 可以自行存储链接状态,可对链接进行分组管理.组消息发送的时候只需要遍历制定组的链接
 
 	return nil
 }
 
-
 var index int64
 
 func TestSocket(t *testing.T)  {
-	websocket.Route.Add("test", func(s *websocket.Socket) {
-		atomic.AddInt64(&index,1)
+	websocket.Route.Add("test", func(s *websocket.WebSocket) {
 		fmt.Println("接收到消息:",s.MessageFormat.Data)
-		fmt.Println(atomic.LoadInt64(&index))
-		_ = s.Conn.WriteMessage([]byte("服务端正在处理test方法"))
-		websocket.Manager.Send("2","发送给用户2的消息")
+		//fmt.Println(atomic.LoadInt64(&index))
+		//atomic.AddInt64(&index,1)
+		//_ = s.Conn.WriteMessage([]byte("服务端正在处理test方法"))
+		//websocket.Manager.Send("2","发送给用户2的消息")
 	})
 
 	//group send message
-	websocket.Route.Add("group_send", func(s *websocket.Socket) {
+	websocket.Route.Add("group_send", func(s *websocket.WebSocket) {
 		websocket.Manager.Broadcast(s.Conn,[]byte("This is group send message"))
 	})
 

@@ -39,10 +39,15 @@ func (this *Client) SendMessage(body []byte) error {
 
 func TestClient(t *testing.T)  {
 	client := NewWebsocketClient("localhost:9090","/")
-	for i := 0 ;i < 200000;i++ {
-		go func(bb int) {
-			fmt.Println(client.SendMessage([]byte(`{"route":"test","data":"`+strconv.Itoa(bb)+`"}`)))
-		}(i)
+
+	t1 := time.Now()
+	for i := 0 ;i < 1000000;i++ {
+		//go func(bb int) {
+		//	fmt.Println(client.SendMessage([]byte(`{"route":"test","data":"`+strconv.Itoa(bb + 1)+`"}`)))
+		//}(i)
+		_ = client.SendMessage([]byte(`{"route":"test","data":"`+strconv.Itoa(i + 1)+`"}`))
 	}
+	elapsed := time.Since(t1)
+	fmt.Println(elapsed)
 	time.Sleep(time.Second * 100)
 }

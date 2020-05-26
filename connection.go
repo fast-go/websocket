@@ -19,8 +19,8 @@ type Connection struct{
 func InitConnection(wsConn *gorillaWebsocket.Conn)(conn *Connection ,err error){
 	conn = &Connection{
 		wsConnect:wsConn,
-		inChan: make(chan []byte,10000),
-		outChan: make(chan []byte,10000),
+		inChan: make(chan []byte,100),
+		outChan: make(chan []byte,100),
 		closeChan: make(chan byte,1),
 	}
 	// 启动读协程
