@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"errors"
+	"fmt"
 	gorillaWebsocket "github.com/gorilla/websocket"
 	"sync"
 )
@@ -19,8 +20,8 @@ type Connection struct{
 func InitConnection(wsConn *gorillaWebsocket.Conn)(conn *Connection ,err error){
 	conn = &Connection{
 		wsConnect:wsConn,
-		inChan: make(chan []byte,100),
-		outChan: make(chan []byte,100),
+		inChan: make(chan []byte,10000),
+		outChan: make(chan []byte,10000),
 		closeChan: make(chan byte,1),
 	}
 	// 启动读协程
@@ -30,6 +31,7 @@ func InitConnection(wsConn *gorillaWebsocket.Conn)(conn *Connection ,err error){
 	return
 }
 
+//read message
 func (conn *Connection)ReadMessage()(data []byte , err error){
 	select{
 	case data = <- conn.inChan:
@@ -42,6 +44,7 @@ func (conn *Connection)ReadMessage()(data []byte , err error){
 func (conn *Connection)WriteMessage(data []byte)(err error) {
 	select{
 	case conn.outChan <- data:
+		fmt.Println(string(data))
 	case <- conn.closeChan:
 		err = errors.New("connection is closed")
 	}
@@ -56,7 +59,6 @@ func (conn *Connection)Close(){
 	if !conn.isClosed {
 		close(conn.closeChan)
 		conn.isClosed = true
-		Manager.DisConnected(conn.UniqueIdentification)
 	}
 	conn.mutex.Unlock()
 }

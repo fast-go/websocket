@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 	"websocket"
 )
 
@@ -34,32 +35,48 @@ func (auth *Auth)Identity(w http.ResponseWriter, r *http.Request) (error,websock
 	return nil,"1"
 }
 
-func (auth *Auth)ConnDone(c *websocket.Connection) error {
-	//todo 可以自行存储链接状态,可对链接进行分组管理.组消息发送的时候只需要遍历制定组的链接
+func (auth *Auth) ConnBefore(w http.ResponseWriter, r *http.Request) {
 
-	return nil
 }
 
-var index int64
+func (auth *Auth)ConnDone(c *websocket.Connection) {
+	//todo 可以自行存储链接状态,可对链接进行分组管理.组消息发送的时候只需要遍历制定组的链接
+}
+
+func (auth *Auth)Heartbeat(c *websocket.Connection) {
+	ticker := time.NewTicker(time.Second * 2)
+	for {
+		<-ticker.C
+		if err := c.WriteMessage([]byte("ping"));err != nil {
+			return
+		}
+	}
+}
 
 func TestSocket(t *testing.T)  {
-	websocket.Route.Add("test", func(s *websocket.WebSocket) {
-		fmt.Println("接收到消息:",s.MessageFormat.Data)
-		//fmt.Println(atomic.LoadInt64(&index))
-		//atomic.AddInt64(&index,1)
-		//_ = s.Conn.WriteMessage([]byte("服务端正在处理test方法"))
-		//websocket.Manager.Send("2","发送给用户2的消息")
+	im := websocket.NewWebSocket()
+	im.Events.Register("enter", func(s *websocket.Subject) {
+		fmt.Println("message:",s.MessageFormat.Data)
+		_ = s.Send([]byte("Send to yourself"))
+
+		//s.IsOnline("1")
+
+		//_ = s.SendToUid("1",[]byte("Send to others"))
+
+		//s.Broadcast([]byte("broadcast"))
+
 	})
 
 	//group send message
-	websocket.Route.Add("group_send", func(s *websocket.WebSocket) {
-		websocket.Manager.Broadcast(s.Conn,[]byte("This is group send message"))
+	im.Events.Register("group_send", func(s *websocket.Subject) {
+		im.Manager.Broadcast(s.Conn,[]byte("This is group send message"))
 	})
 
 	// 设置路由，如果访问/，则调用index方法
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
-		websocket.Middleware(writer,request,&Auth{})
+		im.Middleware(writer,request,&Auth{})
 	})
+
 
 	// 启动web服务，监听9090端口
 	err := http.ListenAndServe(":9090", nil)

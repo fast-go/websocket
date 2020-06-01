@@ -18,7 +18,7 @@ type Client struct {
 func NewWebsocketClient(host, path string) *Client {
 	u := url.URL{Scheme: "ws", Host: host, Path: path}
 
-	ws, err := websocket.Dial(u.String(), "", "http://"+host+"/")
+	ws, err := websocket.Dial(u.String(), "", "http://"+host+"/" )
 
 	fmt.Println(err)
 	return &Client{
@@ -41,11 +41,14 @@ func TestClient(t *testing.T)  {
 	client := NewWebsocketClient("localhost:9090","/")
 
 	t1 := time.Now()
-	for i := 0 ;i < 1000000;i++ {
+	for i := 0 ;i < 10000;i++ {
+		fmt.Println(strconv.Itoa(i + 1))
 		//go func(bb int) {
 		//	fmt.Println(client.SendMessage([]byte(`{"route":"test","data":"`+strconv.Itoa(bb + 1)+`"}`)))
 		//}(i)
-		_ = client.SendMessage([]byte(`{"route":"test","data":"`+strconv.Itoa(i + 1)+`"}`))
+		msg := `{"event":"enter","data":"`+strconv.Itoa(i + 1)+`"}`
+		//fmt.Println(msg)
+		_ = client.SendMessage([]byte(msg))
 	}
 	elapsed := time.Since(t1)
 	fmt.Println(elapsed)

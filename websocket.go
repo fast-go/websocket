@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/gorilla/websocket"
 	"net/http"
-	"time"
+	"sync"
 )
 
 var upGrader = websocket.Upgrader{
@@ -13,32 +13,61 @@ var upGrader = websocket.Upgrader{
 	},
 }
 
-// websocket message
-type MessageFormat struct {
-	Route       string   `json:"route"`
-	From        UniqueIdentification
-	Data    	interface{} `json:"data,omitempty"`
-}
-
-type WebSocket struct {
+type Subject struct {
 	W http.ResponseWriter
 	R *http.Request
 	Conn *Connection
+	Websocket *WebSocket
 	MessageFormat MessageFormat
 }
 
-type NoticeController func(*WebSocket)
-
-type socketRoute map[string]NoticeController
-
-func (sr *socketRoute)Add(routeName string,fuc NoticeController) {
-	(*sr)[routeName] = fuc
+func (s *Subject) Send(content []byte) error {
+	return s.Websocket.Manager.Send(s.Conn.UniqueIdentification,content)
 }
 
-var Route = make(socketRoute)
+func (s *Subject) SendToUid(uniqueIdentification UniqueIdentification,content []byte) error {
+	return s.Websocket.Manager.Send(uniqueIdentification,content)
+}
 
-// websocket middleware
-func Middleware(w http.ResponseWriter, r *http.Request,auth Auth) {
+func (s *Subject) Broadcast(content []byte) {
+	s.Websocket.Manager.Broadcast(s.Conn,content)
+}
+
+func (s *Subject) IsOnline(uniqueIdentification UniqueIdentification) (*Connection,bool){
+	return s.Websocket.Manager.IsOnline(uniqueIdentification)
+}
+
+type EventFunc func(*Subject)
+
+type socketEventFunc map[string]EventFunc
+
+//register event
+func (sr *socketEventFunc)Register(eventName string,fuc EventFunc) {
+	(*sr)[eventName] = fuc
+}
+
+//detach event
+func (sr *socketEventFunc)Detach(eventName string) {
+	delete(*sr,eventName)
+}
+
+type WebSocket struct {
+	Events  socketEventFunc
+	Manager ConnManager
+}
+
+func NewWebSocket() *WebSocket {
+	return &WebSocket{
+		Events: make(socketEventFunc),
+		Manager: ConnManager {
+			Online:new(int32),
+			connections:new(sync.Map),
+		},
+	}
+}
+
+func (webSocket *WebSocket)Middleware(w http.ResponseWriter, r *http.Request,drive Drive) {
+	drive.ConnBefore(w,r)
 	var(
 		conn *Connection
 		data []byte
@@ -50,23 +79,19 @@ func Middleware(w http.ResponseWriter, r *http.Request,auth Auth) {
 	if conn,err = InitConnection(ws);err != nil {
 		goto ERR
 	}else {
-		if err,conn.UniqueIdentification = auth.Identity(w,r);err == nil {
-			Manager.Connected(conn.UniqueIdentification,conn)
-			_ = auth.ConnDone(conn)
+		if err,conn.UniqueIdentification = drive.Identity(w,r);err == nil {
+			webSocket.Manager.Connected(conn.UniqueIdentification,conn)
+			drive.ConnDone(conn)
 		}else {
 			goto ERR
 		}
 	}
-	go func() {
-		ticker := time.NewTicker(time.Second * 2)
-		for {
-			<-ticker.C
-			if err = conn.WriteMessage([]byte("ping"));err != nil {
-				return
-			}
-		}
+	go drive.Heartbeat(conn)
+
+	defer func() {
+		conn.Close()
+		webSocket.Manager.DisConnected(conn.UniqueIdentification)
 	}()
-	defer conn.Close()
 	for {
 		if data , err = conn.ReadMessage();err != nil {
 			goto ERR
@@ -74,28 +99,40 @@ func Middleware(w http.ResponseWriter, r *http.Request,auth Auth) {
 		var messageFormat MessageFormat
 		if err := json.Unmarshal(data,&messageFormat);err != nil {
 			_ = conn.WriteMessage([]byte("data format fail"))
-			continue
+			goto ERR
 		}
 		messageFormat.From = conn.UniqueIdentification
-		if fuc,ok := Route[messageFormat.Route];ok {
-			fuc(&WebSocket{
+
+		if fuc,ok := webSocket.Events[messageFormat.Event];ok {
+			fuc(&Subject{
 				W:    w,
 				R:    r,
 				Conn: conn,
 				MessageFormat: messageFormat,
+				Websocket: webSocket,
 			})
 		}else {
-			_ = conn.WriteMessage([]byte("route not existent"))
+			_ = conn.WriteMessage([]byte("Event not existent"))
 		}
 	}
 	ERR:
 		conn.Close()
+	    webSocket.Manager.DisConnected(conn.UniqueIdentification)
 }
 
 
-type UniqueIdentification string
+type Drive interface {
 
-type Auth interface {
+	//before connection starts
+	ConnBefore(w http.ResponseWriter, r *http.Request)
+
+	//return user unique id
 	Identity(w http.ResponseWriter, r *http.Request) (error,UniqueIdentification)
-	ConnDone(conn *Connection) error
+
+	//heartbeat detection
+	Heartbeat(conn *Connection)
+
+	//connection complete
+	ConnDone(conn *Connection)
+
 }

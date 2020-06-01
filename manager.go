@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -10,11 +11,6 @@ import (
 type ConnManager struct {
 	Online *int32
 	connections *sync.Map
-}
-
-var Manager = ConnManager {
-	Online:new(int32),
-	connections:new(sync.Map),
 }
 
 func (m *ConnManager) Connected(k,v interface{}) {
@@ -42,23 +38,35 @@ func (m *ConnManager) Foreach(f func(k, v interface{})) {
 	})
 }
 
+// check if the connection exists
+func (m *ConnManager)IsOnline(uniqueIdentification UniqueIdentification) (*Connection,bool) {
+	v,b := m.Get(uniqueIdentification)
+	if b {
+		if c ,ok := v.(*Connection);ok{
+			return c,ok
+		}
+	}
+	return nil,false
+}
+
 // send message to one websocket connection
-func (m *ConnManager) Send(k string, msg string) {
+func (m *ConnManager) Send(k UniqueIdentification, msg []byte) (err error) {
 	if v, ok := m.Get(k); ok {
 		if conn, ok := v.(*Connection); ok {
-			if err := conn.WriteMessage([]byte(msg)); err != nil {
-				fmt.Println("Send msg error: ", err)
+			if err = conn.WriteMessage(msg); err != nil {
+				return err
 			}
 		} else {
-			fmt.Println("invalid type, expect *websocket.Conn")
+			err = errors.New("invalid type, expect *websocket.Conn")
 		}
 	} else {
-		fmt.Println("connection not exist")
+		err = errors.New("connection not exist")
 	}
+	return err
 }
 
 // send message to multi websocket connections
-func (m *ConnManager) SendMulti(keys []string, msg string) {
+func (m *ConnManager) SendMulti(keys []UniqueIdentification, msg string) {
 	for _, k := range keys {
 		v, ok := m.Get(k)
 		if ok {
